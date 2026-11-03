@@ -38,13 +38,26 @@ never turned on in game mode, even after `sceUsbActivate`:
 | GPIO port 1, bit 2 | on | off |
 
 `usb.prx` has a kernel export in `sceUsb_driver`, NID `0x46EA407B`, with no
-arguments, that reaches the port code. The name is unknown to me, and `0x1582F0A2`
-looks like its counterpart. **The order matters:** called before the USB bus driver
+arguments, that reaches the port code. `0x1582F0A2` is its counterpart. Neither
+has an official name (psplibdoc lists them as `sceUsb_driver_46EA407B` and
+`sceUsb_driver_1582F0A2`). **The order matters:** called before the USB bus driver
 has started, it returns 0 and changes nothing. Called after, the port comes up:
 
 - the PC sees `054c:01c9`
 - `sceUsbGetState()` reports `0x222`
 - `usbhostfs_pc` prints `Connected to device`
+
+### What the 6.61 code does
+
+From a disassembly of `usb.prx` in the official 6.61 PSP Go updater:
+
+- `0x46EA407B` sets a "port enabled" flag. If the bus driver has been started, it
+  then registers the USB interrupts and brings the port up. If the flag is
+  already set it returns `0x80243001`.
+- `0x1582F0A2` is the reverse. It returns `0x80243001` if the flag is not set.
+- In the Go firmware, the only module that imports either one is
+  `sceImpose_Driver` (`impose_05g`). So in a normal system `impose` turns the port
+  on. I don't know why it does not do so in games on my console.
 
 ## Is the firmware or ARK broken?
 
@@ -58,15 +71,13 @@ As far as I can tell, no:
 - I read the current ARK-5 source on GitHub (not the exact build on my console).
   It never calls these exports and only touches `usb.prx` for USB charging.
 
-## Probably related: USB charging
+## USB charging is not the cause
 
-ARK-5 enables `usbcharge` by default, and I had it turned off. This may be why most
-people never see this problem, but **it is an untested guess**. I have not run the
-test with charging on and the plugin off.
-
-If you have this problem, try turning USB Charge on first. I can't leave it on
-because my battery has problems right now, so this plugin is my solution: it works
-with charging off.
+I first guessed that ARK's `usbcharge` option was related, because I had it off.
+The ARK-5 source only hooks two `scePower_driver` imports of `usb.prx`
+(`0x72D1B53A`, `0x7EAA4247`) when it is on, and in 6.61 `usb.prx` never calls
+either of them. So it does not change how the port comes up. The PSP Go also
+charges over the same port whether the option is on or off.
 
 ## Install
 

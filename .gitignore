@@ -3,3 +3,4 @@
 *.prx
 !release/usbfix.prx
 PARAM.SFO
+usb.prx
